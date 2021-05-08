@@ -14,6 +14,17 @@ import (
 	"time"
 )
 
+var (
+	success         = res{200, ""}
+	successBs, _    = json.Marshal(success)
+	notAccess       = res{Code: 403, Msg: "accesstoken错误"}
+	notAccessBs, _  = json.Marshal(notAccess)
+	paramError      = res{Code: 500, Msg: "参数错误"}
+	paramErrorBs, _ = json.Marshal(paramError)
+	jobRunning      = res{Code: 500, Msg: "job thread is running or has trigger queue."}
+	jobRunningBs, _ = json.Marshal(jobRunning)
+)
+
 //执行器
 type Executor interface {
 	//初始化
@@ -78,13 +89,31 @@ func (e *executor) LogHandler(handler LogHandler) {
 	e.logHandler = handler
 }
 
+// accessToken中间件
+func (e *executor) accessTokenMiddile(handler func(http.ResponseWriter, *http.Request)) func(writer http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		if e.opts.AccessToken != "" {
+			accessToken := request.Header.Get("XXL-JOB-ACCESS-TOKEN")
+			if accessToken != e.opts.AccessToken {
+				writer.WriteHeader(403)
+				_, _ = writer.Write(notAccessBs)
+				return
+			}
+		}
+		handler(writer, request)
+	}
+}
+
 func (e *executor) Run() (err error) {
 	// 创建路由器
 	mux := http.NewServeMux()
 	// 设置路由规则
-	mux.HandleFunc("/run", e.runTask)
-	mux.HandleFunc("/kill", e.killTask)
-	mux.HandleFunc("/log", e.taskLog)
+	mux.HandleFunc("/beat", e.accessTokenMiddile(e.beat))
+	mux.HandleFunc("/idleBeat", e.accessTokenMiddile(e.idleBeat))
+	mux.HandleFunc("/run", e.accessTokenMiddile(e.runTask))
+	mux.HandleFunc("/kill", e.accessTokenMiddile(e.killTask))
+	mux.HandleFunc("/log", e.accessTokenMiddile(e.taskLog))
+
 	// 创建服务器
 	server := &http.Server{
 		Addr:         e.address,
@@ -209,6 +238,30 @@ func (e *executor) taskLog(writer http.ResponseWriter, request *http.Request) {
 	}
 	str, _ := json.Marshal(res)
 	_, _ = writer.Write(str)
+}
+
+// 心跳检测
+func (e *executor) beat(writer http.ResponseWriter, request *http.Request) {
+
+	_, _ = writer.Write(successBs)
+}
+
+// 忙碌检测
+func (e *executor) idleBeat(writer http.ResponseWriter, request *http.Request) {
+	req, _ := ioutil.ReadAll(request.Body)
+	param := &IdeaBeatReq{}
+	err := json.Unmarshal(req, &param)
+	if err != nil {
+		_, _ = writer.Write(paramErrorBs)
+		e.log.Error("参数解析错误:" + string(req))
+		return
+	}
+	oldTask := e.runList.Get(Int64ToStr(param.JobID))
+	if oldTask != nil {
+		_, _ = writer.Write(jobRunningBs)
+		return
+	}
+	_, _ = writer.Write(successBs)
 }
 
 //注册执行器到调度中心

@@ -12,7 +12,7 @@ func main() {
 		xxl.ServerAddr("http://192.168.3.132:8100"),
 		xxl.AccessToken("fafab23afaffabdfhft324"), //请求令牌(默认为空)
 		xxl.ExecutorIp("192.168.3.5"),             //可自动获取
-		xxl.ExecutorPort("9999"),                  //默认9999（非必填）
+		xxl.ExecutorPort("9998"),                  //默认9999（非必填）
 		xxl.RegistryKey("test"),                   //执行器名称
 		xxl.SetLogger(&logger{}),                  //自定义日志
 	)

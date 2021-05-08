@@ -60,6 +60,10 @@ type killReq struct {
 	JobID int64 `json:"jobId"` // 任务ID
 }
 
+type IdeaBeatReq struct {
+	JobID int64 `json:"jobId"` // 任务ID
+}
+
 //日志请求
 type LogReq struct {
 	LogDateTim  int64 `json:"logDateTim"`  // 本次调度日志时间
@@ -80,4 +84,10 @@ type LogResContent struct {
 	ToLineNum   int    `json:"toLineNum"`   // 本次请求，日志结束行号
 	LogContent  string `json:"logContent"`  // 本次请求日志内容
 	IsEnd       bool   `json:"isEnd"`       // 日志是否全部加载完
+}
+
+// 心跳响应
+type BeatRes struct {
+	Code int64  `json:"code"`
+	Msg  string `json:"msg"`
 }
