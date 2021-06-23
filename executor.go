@@ -108,8 +108,8 @@ func (e *executor) Run() (err error) {
 	// 创建路由器
 	mux := http.NewServeMux()
 	// 设置路由规则
-	mux.HandleFunc("/beat", e.accessTokenMiddile(e.beat))
-	mux.HandleFunc("/idleBeat", e.accessTokenMiddile(e.idleBeat))
+	mux.HandleFunc("/beat", e.beat)
+	mux.HandleFunc("/idleBeat", e.idleBeat)
 	mux.HandleFunc("/run", e.accessTokenMiddile(e.runTask))
 	mux.HandleFunc("/kill", e.accessTokenMiddile(e.killTask))
 	mux.HandleFunc("/log", e.accessTokenMiddile(e.taskLog))
