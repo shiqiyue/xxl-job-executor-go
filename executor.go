@@ -121,7 +121,7 @@ func (e *executor) Run() (err error) {
 		Handler:      mux,
 	}
 	// 监听端口并提供服务
-	e.log.Info("Starting server at " + e.address)
+	e.log.Info(nil, "Starting server at "+e.address)
 	go server.ListenAndServe()
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGKILL, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGTERM)
@@ -151,13 +151,13 @@ func (e *executor) runTask(writer http.ResponseWriter, request *http.Request) {
 	err := json.Unmarshal(req, &param)
 	if err != nil {
 		_, _ = writer.Write(returnCall(param, 500, "params err"))
-		e.log.Error("参数解析错误:" + string(req))
+		e.log.Error(request.Context(), "参数解析错误:"+string(req))
 		return
 	}
-	e.log.Info("任务参数:%v", param)
+	e.log.Info(request.Context(), "任务参数:%v", param)
 	if !e.regList.Exists(param.ExecutorHandler) {
 		_, _ = writer.Write(returnCall(param, 500, "Task not registered"))
-		e.log.Error("任务[" + Int64ToStr(param.JobID) + "]没有注册:" + param.ExecutorHandler)
+		e.log.Error(request.Context(), "任务["+Int64ToStr(param.JobID)+"]没有注册:"+param.ExecutorHandler)
 		return
 	}
 
@@ -171,7 +171,7 @@ func (e *executor) runTask(writer http.ResponseWriter, request *http.Request) {
 			}
 		} else { //单机串行,丢弃后续调度 都进行阻塞
 			_, _ = writer.Write(returnCall(param, 500, "There are tasks running"))
-			e.log.Error("任务[" + Int64ToStr(param.JobID) + "]已经在运行了:" + param.ExecutorHandler)
+			e.log.Error(request.Context(), "任务["+Int64ToStr(param.JobID)+"]已经在运行了:"+param.ExecutorHandler)
 			return
 		}
 	}
@@ -204,7 +204,7 @@ func (e *executor) runTask(writer http.ResponseWriter, request *http.Request) {
 			}
 		}
 	})
-	e.log.Info("任务[" + Int64ToStr(param.JobID) + "]开始执行:" + param.ExecutorHandler)
+	e.log.Info(request.Context(), "任务["+Int64ToStr(param.JobID)+"]开始执行:"+param.ExecutorHandler)
 	_, _ = writer.Write(returnGeneral())
 }
 
@@ -217,7 +217,7 @@ func (e *executor) killTask(writer http.ResponseWriter, request *http.Request) {
 	_ = json.Unmarshal(req, &param)
 	if !e.runList.Exists(Int64ToStr(param.JobID)) {
 		_, _ = writer.Write(returnKill(param, 500))
-		e.log.Error("任务[" + Int64ToStr(param.JobID) + "]没有运行")
+		e.log.Error(request.Context(), "任务["+Int64ToStr(param.JobID)+"]没有运行")
 		return
 	}
 	task := e.runList.Get(Int64ToStr(param.JobID))
@@ -232,17 +232,17 @@ func (e *executor) taskLog(writer http.ResponseWriter, request *http.Request) {
 	data, err := ioutil.ReadAll(request.Body)
 	req := &LogReq{}
 	if err != nil {
-		e.log.Error("日志请求失败:" + err.Error())
+		e.log.Error(request.Context(), "日志请求失败:"+err.Error())
 		reqErrLogHandler(writer, req, err)
 		return
 	}
 	err = json.Unmarshal(data, &req)
 	if err != nil {
-		e.log.Error("日志请求解析失败:" + err.Error())
+		e.log.Error(request.Context(), "日志请求解析失败:"+err.Error())
 		reqErrLogHandler(writer, req, err)
 		return
 	}
-	e.log.Info("日志请求参数:%+v", req)
+	e.log.Info(request.Context(), "日志请求参数:%+v", req)
 	if e.logHandler != nil {
 		res = e.logHandler(req)
 	} else {
@@ -265,7 +265,7 @@ func (e *executor) idleBeat(writer http.ResponseWriter, request *http.Request) {
 	err := json.Unmarshal(req, &param)
 	if err != nil {
 		_, _ = writer.Write(paramErrorBs)
-		e.log.Error("参数解析错误:" + string(req))
+		e.log.Error(request.Context(), "参数解析错误:"+string(req))
 		return
 	}
 	oldTask := e.runList.Get(Int64ToStr(param.JobID))
@@ -296,22 +296,22 @@ func (e *executor) registry() {
 		func() {
 			result, err := e.post("/api/registry", string(param))
 			if err != nil {
-				e.log.Error("执行器注册失败1:" + err.Error())
+				e.log.Error(nil, "执行器注册失败1:"+err.Error())
 				return
 			}
 			defer result.Body.Close()
 			body, err := ioutil.ReadAll(result.Body)
 			if err != nil {
-				e.log.Error("执行器注册失败2:" + err.Error())
+				e.log.Error(nil, "执行器注册失败2:"+err.Error())
 				return
 			}
 			res := &res{}
 			_ = json.Unmarshal(body, &res)
 			if res.Code != 200 {
-				e.log.Error("执行器注册失败3:" + string(body))
+				e.log.Error(nil, "执行器注册失败3:"+string(body))
 				return
 			}
-			e.log.Info("执行器注册成功:" + string(body))
+			e.log.Info(nil, "执行器注册成功:"+string(body))
 		}()
 
 	}
@@ -328,14 +328,14 @@ func (e *executor) registryRemove() {
 	}
 	param, err := json.Marshal(req)
 	if err != nil {
-		e.log.Error("执行器摘除失败:" + err.Error())
+		e.log.Error(nil, "执行器摘除失败:"+err.Error())
 	}
 	res, err := e.post("/api/registryRemove", string(param))
 	if err != nil {
-		e.log.Error("执行器摘除失败:" + err.Error())
+		e.log.Error(nil, "执行器摘除失败:"+err.Error())
 	}
 	body, err := ioutil.ReadAll(res.Body)
-	e.log.Info("执行器摘除成功:" + string(body))
+	e.log.Info(nil, "执行器摘除成功:"+string(body))
 	_ = res.Body.Close()
 }
 
@@ -343,14 +343,14 @@ func (e *executor) registryRemove() {
 func (e *executor) callback(task *Task, code int64, msg string) {
 	res, err := e.post("/api/callback", string(returnCall(task.Param, code, msg)))
 	if err != nil {
-		e.log.Error("callback err : ", err.Error())
+		e.log.Error(task.Ext, "callback err : ", err.Error())
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		e.log.Error("callback ReadAll err : ", err.Error())
+		e.log.Error(task.Ext, "callback ReadAll err : ", err.Error())
 	}
 	e.runList.Del(Int64ToStr(task.Id))
-	e.log.Info("任务回调成功:" + string(body))
+	e.log.Info(task.Ext, "任务回调成功:"+string(body))
 }
 
 //post
