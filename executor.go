@@ -190,7 +190,7 @@ func (e *executor) runTask(writer http.ResponseWriter, request *http.Request) {
 	task.log = e.log
 	if e.opts.Extensions != nil && len(e.opts.Extensions) > 0 {
 		for _, extension := range e.opts.Extensions {
-			task.Ext = extension.Before(task.Ext)
+			task.Ext = extension.Before(task.Ext, task)
 		}
 	}
 	e.runList.Set(Int64ToStr(task.Id), task)
@@ -200,7 +200,7 @@ func (e *executor) runTask(writer http.ResponseWriter, request *http.Request) {
 		if e.opts.Extensions != nil && len(e.opts.Extensions) > 0 {
 			for i := len(e.opts.Extensions) - 1; i >= 0; i-- {
 				extension := e.opts.Extensions[i]
-				task.Ext = extension.After(task.Ext)
+				task.Ext = extension.After(task.Ext, task)
 			}
 		}
 	})
