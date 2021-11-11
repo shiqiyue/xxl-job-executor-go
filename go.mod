@@ -1,4 +1,4 @@
-module github.com/shiqiyue/xxl-job-executor-go
+module gitee.com/shiqiyue/xxl-job-executor-go
 
 go 1.14
 
