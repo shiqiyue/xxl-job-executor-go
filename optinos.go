@@ -14,6 +14,8 @@ type Options struct {
 	RegistryKey  string        `json:"registry_key"`  //执行器名称
 	LogDir       string        `json:"log_dir"`       //日志目录
 
+	Extensions []Extension //执行任务的extension
+
 	l Logger //日志处理
 }
 
@@ -81,5 +83,15 @@ func RegistryKey(registryKey string) Option {
 func SetLogger(l Logger) Option {
 	return func(o *Options) {
 		o.l = l
+	}
+}
+
+// 添加执行任务的扩展
+func AddExtension(l Extension) Option {
+	return func(o *Options) {
+		if o.Extensions == nil {
+			o.Extensions = make([]Extension, 0)
+		}
+		o.Extensions = append(o.Extensions, l)
 	}
 }

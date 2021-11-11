@@ -176,21 +176,33 @@ func (e *executor) runTask(writer http.ResponseWriter, request *http.Request) {
 		}
 	}
 
-	cxt := context.Background()
+	ctx := context.Background()
+
 	task := e.regList.Get(param.ExecutorHandler)
 	if param.ExecutorTimeout > 0 {
-		task.Ext, task.Cancel = context.WithTimeout(cxt, time.Duration(param.ExecutorTimeout)*time.Second)
+		task.Ext, task.Cancel = context.WithTimeout(ctx, time.Duration(param.ExecutorTimeout)*time.Second)
 	} else {
-		task.Ext, task.Cancel = context.WithCancel(cxt)
+		task.Ext, task.Cancel = context.WithCancel(ctx)
 	}
 	task.Id = param.JobID
 	task.Name = param.ExecutorHandler
 	task.Param = param
 	task.log = e.log
-
+	if e.opts.Extensions != nil && len(e.opts.Extensions) > 0 {
+		for _, extension := range e.opts.Extensions {
+			task.Ext = extension.Before(task.Ext)
+		}
+	}
 	e.runList.Set(Int64ToStr(task.Id), task)
 	go task.Run(func(code int64, msg string) {
+
 		e.callback(task, code, msg)
+		if e.opts.Extensions != nil && len(e.opts.Extensions) > 0 {
+			for i := len(e.opts.Extensions) - 1; i >= 0; i-- {
+				extension := e.opts.Extensions[i]
+				task.Ext = extension.After(task.Ext)
+			}
+		}
 	})
 	e.log.Info("任务[" + Int64ToStr(param.JobID) + "]开始执行:" + param.ExecutorHandler)
 	_, _ = writer.Write(returnGeneral())
